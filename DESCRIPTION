@@ -1,0 +1,25 @@
+Package: ecoTolerance
+Type: Package
+Title: Ecological Tolerance Indices
+Version: 0.1.0
+Author: Diego F. Miranda; Lucas R. Forti
+Maintainer: Diego F. Miranda <dfernandes115@gmail.com>
+Description:This package computes the Highway Tolerance Index (HTI) and the Human Footprint Tolerance Index (HFTI) for species occurrence data. It automates data cleaning and integrates spatial data (roads and human footprint) to produce reproducible tolerance metrics for biodiversity and conservation research. This package is part of a PhD thesis focused on amphibian ecology in Brazil.
+License: UFBA
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.3.2
+Imports: 
+    sf,
+    raster,
+    dplyr,
+    stats
+Suggests:
+    ggplot2,
+    terra,
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+VignetteBuilder: knitr

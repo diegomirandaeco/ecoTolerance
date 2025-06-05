@@ -1,0 +1,334 @@
+---
+title: "ecoTolerance: A Comprehensive Tutorial"
+author:
+  - name: "Diego F. Miranda"
+    email: "dfernandes115@gmail.com"
+    affiliation: "Universidade Federal da Bahia"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: |
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteIndexEntry{ecoTolerance: A Comprehensive Tutorial}
+  %\usepackage{ae}
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+
+```
+
+# Introduction
+
+The **ecoTolerance** package is designed to calculate two key indices for ecological studies involving species occurrences:
+
+1.  **Road Tolerance Index (RTI)**
+
+2.  **Human Footprint Tolerance Index (HFTI)**
+
+These indices enable researchers and conservationists to assess how tolerant different species are to roads and human footprint, respectively. The package is particularly useful in biodiversity and conservation biology studies, and is part of an ongoing PhD thesis focused on amphibian species in Brazil.
+
+> **Why use ecoTolerance?**
+>
+> -   Automates data cleaning (removal of duplicates, filtering of spatially nearby points).
+>
+> -   Integrates spatial data (road networks, human footprint rasters).
+>
+> -   Provides reproducible and consistent calculations of RTI and HFTI.
+>
+> -   Offers built-in functions to produce maps and density plots for all species.
+>
+> -   Supports both internal example data (Brazilian roads + human footprint rasters) and external user-supplied layers (shapefiles & rasters from any region).
+
+# Features of ecoTolerance
+
+-   **Data Preprocessing**\
+    The function `process_occurrences()` converts a data frame of raw occurrences (columns: `species`, `longitude`, `latitude`) into and `sf` object, removes exact duplicates, and optionally filters out occurrences within a user-defined buffer to avoid pseudo-replication in ecological analyses.
+
+-   **Road Tolerance Index (RTI)**\
+    The function `calculate_RTI()` computes RTI for each record based on the distance to the nearest road and a reference distance, both in km. By default:
+
+    ![](images/hti.png)
+
+    The function returns an `sf` object of occurrences with a new colum `RTI_value` and a data frame of **median RTI per species**.
+
+-   **Human Footprint Tolerance Index (HFTI)**\
+    The function `calculate_HFTI()` calculates HFTI based on the value of human footprint in a buffer around each point. Bt default, HFTI is:
+
+    ![](images/hfti.png)
+
+    where **Human Footprint Value~*i*~**is the average human footprint raster value within a buffer (e.g. 1km) of occurrence i, and `divisor` (default = 50) normalizes those values to 0 - 1. `calculate_HFTI()` returns an `sf` object of occurrences with a new column `HFTI_value` and an data frame of median **HFTI per species**.
+
+-   **Single-Function Workflow**\
+    `compute_indices()` orchestrates all steps in one call:
+
+    1.  Cleans occurrences via `process_occurrences()`.
+    2.  Loads roads and human footprint raster.
+    3.  Calculates RTI with `calculate_RTI()`.
+    4.  Calculates HFTI with `calculate_HFTI()`.
+    5.  Merges median RTI and HFTI per species into a single data frame.
+
+    It returns a list containing:
+
+    -   `RTI`: data frame of RTI per species.
+
+    -   `HFTI`: data frame of HFTI per species.
+
+    -   `indices`: combined data frame (`species` \| `RTI` \| `HFTI`)
+
+    -   `processed_data`: the final `sf` with columns `RTI_value` and `HFTI_value` for each occurrence.
+
+-   **Single-Function Workflow**\
+    The function `generate_all_reports()` takes the output of `compute_indices()`, a shapefile of the study area, and an output directory. It automatically:
+
+    1.  Creates a file `indices_por_especie.csv` (with columns species, RTI and HFTI).
+
+    2.  For each unique species in processed_data, generates four PNG figures:
+
+        -   Map of RTI (occurrence points colored by `RTI_value`).
+
+        -   Map of HFTI (occurrence points colored by `HFTI_value`)
+
+        -   Density plot of RTI (with a vertical line at the median).
+
+        -   Density plot of HFTI (with a vertical line at the median).
+
+        All files are saved in the user-specified `out_dir`.
+
+-   **Use Internal or External Spatial Layers**\
+    By default, `compute_indices()` calls internal helper functions `load_roads()` and `load_human_footprint()` to read example layers (Brazil roads + Brazil human footprint). You can also supply your own shapefiles and rasters by "monkey-patching" those two functions in your script, so that no internal code of the package needs to be changed.
+
+# Installation
+
+To install the development version from your local repository, you can use:
+
+``` r
+devtools::install("path/to/ecoTolerance")
+```
+
+Make sure you have the required packages installed (`sf`, `raster`, `dplyr`, `stats`)
+
+# Quick Start Example
+
+In this tutorial, we will demonstrate how to use **ecoTolerance** with a small example dataset. Theis vignette shows both:
+
+1.  How to use the **internal example layers** (Brazil roads + human footprint).
+
+2.  How to use **your own shapefiles** and **your own rasters** without touching any code inside the package.
+
+## 1. Using Internal Layers (Brazil)
+
+### 1.1 Load the package
+
+``` r
+library(ecoTolerance)
+```
+
+### 1.2 A Sample occurrence Dataset
+
+Create a small sample data frame with occurrences of two species:
+
+``` r
+sample_data <- data.frame(
+  species   = c("SpA", "SpA", "SpB", "SpB"),
+  longitude = c(-50.0000, -50.0005, -51.0000, -51.0005),
+  latitude  = c(-10.0000, -10.0005, -11.0000, -11.0005)
+)
+sample_data
+```
+
+### 1.3 Process Occurrences
+
+Run `process_occurrences()` to remove exact duplicates and optionally filter out records closer than 1km:
+
+``` r
+processed_data <- process_occurrences(
+  data            = sample_data,
+  remove_duplicates = TRUE,
+  buffer_km       = 1
+)
+```
+
+-   `remove_duplicates = TRUE` removes identical coordinates for the same species.
+
+-   `buffer_km = 1` ensures only one record per species within a 1 km radius.
+
+`processed_data` is now an `sf` object in EPSG:4326.
+
+### 1.4 Calculating RTI and HFTI Directly
+
+If you want to calculate RTI and HFTI in separate steps, you can do:
+
+``` r
+# 1) Load internal example layers
+roads <- load_roads()
+footprint <- load_human_footprint()
+
+# 2) Calculate RTI and HFTI
+rti_result <- calculate_RTI(occurrences = processed_data, roads = roadas, ref_dist = 3.5)
+hfti_result <- calculate_HFTI(occurrences = rti,result$data, footprint = footprint, divisor = 50, buffer_m = 1000)
+
+# 3) Inspect the outputs
+rti_result$RTI   # median HTI per species
+hfti_result$HFTI # median HFTI per species
+```
+
+### 1.5 Using `compute_indices()` for a Full Workflow
+
+For convenience, the `compute_indices()` function performs all steps in a single call:
+
+``` r
+result <- compute_indices(
+  data = sample_data
+  remove_duplicates = TRUE,
+  buffer_km = 1,
+  ref_dist = 3.5,
+  divisor = 50
+)
+
+result$RTI           # A data frame with median HTI per species
+result$HFTI          # A data frame with median HFTI per species
+result$indices       # Combined HTI/HFTI by species
+result$processed_data # An sf object with each occurrence's HTI and HFTI
+```
+
+### 1.6 Plotting the Results
+
+If you want to visualize the computed indices spatially, you can do:
+
+``` r
+# For RTI:
+ggplot(result$processed_data) +
+  geom_sf(aes(color = RTI_value)) +
+  scale_color_viridis_c(name = "RTI") +
+  theme_minimal() +
+  ggtitle("Road Tolerance Index (RTI) per Occurrence")
+
+# For HFTI:
+ggplot(result$processed_data) +
+  geom_sf(aes(color = HFTI_value)) +
+  scale_color_viridis_c(name = "HFTI") +
+  theme_minimal() +
+  ggtitle("Human Footprint Tolerance Index (HFTI) per Occurrence")
+```
+
+### 1.7 Generate All Reports (Maps + Density Plots + CSV)
+
+To automatically save **all** outputs for every species, use `generate_all_reports()`:
+
+``` r
+# 1) Shapefile of the study area
+study_area <- "path/to/study_area.shp"
+
+# 2) Output directory
+output_dir <- "path/to/output"
+
+# 3) Generate all maps & plots
+generate_all_reports(
+  result         = result,
+  area_shapefile = study_area,
+  out_dir        = output_dir
+)
+```
+
+## 2. Using External Shapefiles & Rasters (User-Supplied Layers)
+
+If you want to use your own shapefile of roads and your own raster of human footprint (from any region), follow this "monkey-patch" approach:
+
+``` r
+library(ecoTolerance)
+
+# 1) Read your own occurrence CSV
+occ_data <- read.csv("path/to/my_occurrences.csv", stringsAsFactors = FALSE)
+
+# 2) Overwrite load_roads() and load_human_footprint() in the global environment
+load_roads <- function() {
+  # Replace with your own roads shapefile path:
+  my_roads_path <- "path/to/my_region_roads.shp"
+  roads_sf <- sf::st_read(my_roads_path, quiet = TRUE)
+  if (sf::st_crs(roads_sf)$epsg != 4326) {
+    roads_sf <- sf::st_transform(roads_sf, crs = 4326)
+  }
+  return(roads_sf)
+}
+
+load_human_footprint <- function() {
+  # Replace with your own HFP GeoTIFF path:
+  my_hfp_path <- "path/to/my_region_human_footprint.tif"
+  footprint_raster <- raster::raster(my_hfp_path)
+  if (raster::crs(footprint_raster) != "+proj=longlat +datum=WGS84 +no_defs") {
+    footprint_raster <- raster::projectRaster(
+      footprint_raster,
+      crs    = "+proj=longlat +datum=WGS84 +no_defs",
+      method = "bilinear"
+    )
+  }
+  return(footprint_raster)
+}
+
+# 3) Now simply call compute_indices() as usual; it will use the above
+#    functions instead of the internal ones:
+result_bypass <- compute_indices(
+  data            = occ_data,
+  remove_duplicates = TRUE,
+  buffer_km       = 1,
+  ref_dist        = 3.5,
+  divisor         = 50
+)
+
+# 4) Provide your own polygon of study area:
+area_shapefile <- "path/to/my_region_boundary.shp"
+
+# 5) Define an output folder:
+output_dir <- "path/to/custom_output"
+
+# 6) Generate all reports:
+generate_all_reports(
+  result         = result_bypass,
+  area_shapefile = area_shapefile,
+  out_dir        = output_dir
+)
+```
+
+By defining `load_roads()` and `load_human_footprint()` in your script, any call **inside** the ecoTolerance package to these functions will use your versions. As long as your R session remains open, `compute_indices()` will always call your `load_roads()` and `load_human_footprint()`.
+
+## 3. Advanced Configuration
+
+-   **Buffer distance** (`buffer_km`): adjust according to how fine_scaled your occurrence data is. A larger buffer removes points too close to each other withing that radius.
+
+-   **Reference Distance** (`ref_dist`) for **RTI**: choose a value (in km) that makes sense biologically. Amphibians might need a larger reference distance (e.g. 3.5km) than plants (e.g. 1.5km) for instance.
+
+-   **Divisor for HFTI**: set `divisor` for the maximum possible raster value. If your raster ranges 0-100, use `divisor = 100`. The default in the package is 50.
+
+-   **CRS Consistency**: `calculate_RTI()` expects both occurrences and roads in EPSG:4326 (latitude/longitude). Internally, `st_distance()` does a geodetic calculation in meters. `calculate_HFTI()` assumes the human footprint raster is in a projected CRS (e.g. UTM) or at least geographic CRS in meters. If in degrees, the buffer will be interpreted in degrees (not recommended). The vignette examples always reproject to 4326 if necessary, but ideally your raster should already be in a metric projection.
+
+# Conclusion
+
+The **ecoTolerance** package streamlines the process of computing road and human footprint tolerance indices for ecological and conservation studies. By combining robust data processing with reproducible spatial calculations, it aids researchers in understanding species' responses to anthropogenic disturbances.
+
+> **Citation / Reference**
+>
+> -   Please cite this package or the relevant paper if it is part of your paper.
+>
+> -   For academic citation, you can use:
+
+``` r
+citation("ecoTolerance")
+```
+
+# Acknowledgments
+
+-   We thank all the collaborators and advisors involved in this research.
+
+-   This package is part of an ongoing PhD thesis at *Programa de Pós-Graduação em Ecologia: Teoria, Aplicação e Valores of Universidade Federal da Bahia*.
+
+# References
+
+-   MapBiomas. *Coleção de Dados do Módulo de Infraestrutura.* 2022.
+-   Miranda, D. F., Forti, L. R. (in preparation). *ecoTolerance: An R Package for Assessing Road and Human Footprint Tolerance in Wildlife Species*.
+-   Mu, H. et al. *A Global Record of Annual Terrestrial Human Footprint Dataset From 2000 to 2018.* Scientific Data, 9(1), 176.
