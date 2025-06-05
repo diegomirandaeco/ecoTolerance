@@ -18,9 +18,7 @@ O **ecoTolerance** is an R package designed to:
 ## Instalação
 
 ```r
-# If you don't have devtools yet:
-install.packages("devtools")
+# If you don't have remotes yet:
+install.packages("remotes")
 
-# In the root of the package directory:
-devtools::document()  # Gera documentação (NAMESPACE, .Rd)
-devtools::install()   # Instala o pacote
+remotes::instal_github("diegomirandaeco/ecoTolerance")
